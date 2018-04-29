@@ -3,7 +3,7 @@
 #include "commands.h"
 //********************************************
 // function name: ExeCmd
-// Description: interperts and executes built-in commands
+// Description: interprets and executes built-in commands
 // Parameters: pointer to jobs, command string
 // Returns: 0 - success,1 - failure
 //**************************************************************************************
@@ -11,12 +11,27 @@ char prevWD[MAX_LINE_SIZE];
 
 typedef enum {SUCCESS, FAILURE} Result;
 
-int min(int a, int b){
+int Min(int a, int b){
 	return (a < b) ? a : b;
 }
 
-bool isEqual(char* str1, char* str2){
+bool IsEqual(char* str1, char* str2){
 	return (strcmp(str1, str2) == 0 ? TRUE : FALSE);
+}
+
+char *strrev(char *str)
+{
+      char *p1, *p2;
+
+      if (! str || ! *str)
+            return str;
+      for (p1 = str, p2 = str + strlen(str) - 1; p2 > p1; ++p1, --p2)
+      {
+            *p1 ^= *p2;
+            *p2 ^= *p1;
+            *p1 ^= *p2;
+      }
+      return str;
 }
 
 void RollBackHistories(Smash smash){
@@ -26,12 +41,12 @@ void RollBackHistories(Smash smash){
 	}
 }
 
-void addToHistory(Smash smash, char* command){
+void AddToHistory(Smash smash, char* command){
 	if(NUM_OF_HISTORIES - 1 == smash->currHistory){
 		RollBackHistories(smash);
 	}
 	strcpy(smash->history[smash->currHistory], command);
-	smash->currHistory = min(smash->currHistory + 1, NUM_OF_HISTORIES - 1);
+	smash->currHistory = Min(smash->currHistory + 1, NUM_OF_HISTORIES - 1);
 	return;
 }
 
@@ -43,12 +58,12 @@ void DisplayHistory(Smash smash){
 	return;
 }
 
-Result cd(char* path){
+Result ChangeDirectory(char* path){
 	char pwd[MAX_LINE_SIZE], auxWD[MAX_LINE_SIZE];
 	getcwd(pwd, MAX_LINE_SIZE);
 	strcpy(auxWD, prevWD);
 
-	if(isEqual(path, "-")){
+	if(IsEqual(path, "-")){
 		strcpy(pwd, auxWD);
 		getcwd(prevWD, MAX_LINE_SIZE);
 		chdir(pwd);
@@ -67,6 +82,40 @@ Result cd(char* path){
 		getcwd(pwd, MAX_LINE_SIZE);
 		return SUCCESS;
 	}
+}
+
+Result InsertJob(Smash smash, char *cmdString, pid_t pID, time_t time){
+	if(smash->numOfJobs >= MAX_NUM_OF_PROCESSES){
+		perror("Too many processes");
+		return FAILURE;
+	}
+
+	strcpy(smash->jobs[smash->numOfJobs].jobName, cmdString);
+	smash->jobs[smash->numOfJobs].pid = pID;
+	smash->jobs[smash->numOfJobs].startTime = time;
+	smash->numOfJobs = Min(smash->numOfJobs + 1, MAX_NUM_OF_PROCESSES );
+	return SUCCESS;
+}
+
+void PrintJobs(Smash smash){
+	int i=0;
+	for(i = 0; i < smash->numOfJobs; i++){
+		printf("[%d] ", i+1);
+		printf("%s : ", smash->jobs[i].jobName);
+		printf("%d ", smash->jobs[i].pid);
+		printf("%d secs\n", (int)(time(NULL) - smash->jobs[i].startTime));
+	}
+	return;
+}
+
+bool IsBackGround(char* cmdString){
+	char* delimiters = " \t\n";
+	//char* revString = (char*) malloc (sizeof(char) * MAX_LINE_SIZE + 1);
+	//revString = strrev(cmdString);
+	char* token = strtok(strrev(cmdString), delimiters);
+	printf("Last argument is ***%s***\n", token);
+	//free(revString);
+	return IsEqual(token, "&");
 }
 
 int ExeCmd(Smash smash, void* jobs, char* lineSize, char* cmdString)
@@ -93,27 +142,68 @@ int ExeCmd(Smash smash, void* jobs, char* lineSize, char* cmdString)
 // ARE IN THIS CHAIN OF IF COMMANDS. PLEASE ADD
 // MORE IF STATEMENTS AS REQUIRED
 /*************************************************/
-	addToHistory(smash, cmdString);
+	AddToHistory(smash, cmdString);
 
 	if (!strcmp(cmd, "cd") ) 
 	{
-		char* path = args[1];
-		if (SUCCESS != cd(path)){
-			printf("smash error: > \"%s\" - path not found\n", path);
+		switch (num_arg) {
+			case 1:
+				if (SUCCESS != ChangeDirectory(args[1])){
+					printf("smash error: > \"%s\" - path not found\n", args[1]);
+				}
+				if(IsEqual(args[1], "-")){
+					char* cwd = getcwd(pwd, MAX_LINE_SIZE);
+					printf("%s\n", cwd);
+				}
+				break;
+
+			default:
+				illegal_cmd = TRUE;
 		}
 	} 
 	
 	/*************************************************/
 	else if (!strcmp(cmd, "pwd")) 
 	{
-		getcwd(pwd, MAX_LINE_SIZE);
-		printf("%s\n", pwd);
+		switch (num_arg){
+			case 0:
+				getcwd(pwd, MAX_LINE_SIZE);
+				printf("%s\n", pwd);
+				break;
+
+			default:
+				illegal_cmd = TRUE;
+		}
+
 	}
 	
 	/*************************************************/
 	else if (!strcmp(cmd, "history"))
 	{
- 		DisplayHistory(smash);
+ 		switch (num_arg){
+			case 0:
+				DisplayHistory(smash);
+				break;
+
+			default:
+				illegal_cmd = TRUE;
+ 		}
+	}
+	/*************************************************/
+	else if (!strcmp(cmd, "mv"))
+	{
+ 		switch (num_arg){
+			case 2:
+				if (!rename(args[1], args[2])){
+					printf("%s has been renamed to %s\n", args[1], args[2]);
+				}else{
+					perror("Error: ");
+				}
+				break;
+
+			default:
+				illegal_cmd = TRUE;
+ 		}
 	}
 	/*************************************************/
 	else if (!strcmp(cmd, "mkdir"))
@@ -124,33 +214,73 @@ int ExeCmd(Smash smash, void* jobs, char* lineSize, char* cmdString)
 	
 	else if (!strcmp(cmd, "jobs")) 
 	{
- 		
+ 		PrintJobs(smash);
 	}
 	/*************************************************/
 	else if (!strcmp(cmd, "showpid")) 
 	{
-		pid_t smashPid = getpid();
-		printf("smash pid is %d\n", smashPid);
+ 		switch (num_arg){
+			case 0:
+				printf("smash pid is %d\n", getpid());
+				break;
+
+			default:
+				illegal_cmd = TRUE;
+ 		}
 	}
 	/*************************************************/
 	else if (!strcmp(cmd, "fg")) 
 	{
-		
+ 		switch (num_arg){
+			case 0:
+				break;
+
+			case 1:
+				break;
+
+			default:
+				illegal_cmd = TRUE;
+ 		}
 	} 
 	/*************************************************/
 	else if (!strcmp(cmd, "bg")) 
 	{
-  		
+		switch (num_arg){
+			case 0:
+				break;
+
+			case 1:
+				break;
+
+			default:
+				illegal_cmd = TRUE;
+ 		}
 	}
 	/*************************************************/
 	else if (!strcmp(cmd, "quit"))
 	{
-   		
+ 		switch (num_arg){
+			case 0:
+				exit(1);
+				break;
+
+			case 1:
+				if(IsEqual(args[1], "kill")){
+
+				}
+				else{
+					illegal_cmd = TRUE;
+				}
+				break;
+
+			default:
+				illegal_cmd = TRUE;
+ 		}
 	} 
 	/*************************************************/
 	else // external command
 	{
- 		ExeExternal(args, cmdString);
+ 		ExeExternal(smash, args, cmdString);
 	 	return 0;
 	}
 	if (illegal_cmd == TRUE)
@@ -166,33 +296,37 @@ int ExeCmd(Smash smash, void* jobs, char* lineSize, char* cmdString)
 // Parameters: external command arguments, external command string
 // Returns: void
 //**************************************************************************************
-void ExeExternal(char *args[MAX_ARG], char* cmdString)
+void ExeExternal(Smash smash, char *args[MAX_ARG], char* cmdString)
 {
 	int pID;
+	printf("entering ExeExternal\n");
     	switch(pID = fork()) 
 	{
     		case -1: 
-					// Add your code here (error)
-					
-					/* 
-					your code
-					*/
+    			perror("Could not create a new process");
+    			break;
+
         	case 0 :
-                	// Child Process
-               		setpgrp();
-					
-			        // Add your code here (execute an external command)
-					break;
-					/* 
-					your code
-					*/
+				// Child Process
+				setpgrp();
+				// printf("son code running\n");
+				execvp(args[0], args);
+				perror("Could not execute external command");
+				exit(1);
+				break;
 			
 			default:
-                	// Add your code here
-					
-					/* 
-					your code
-					*/
+				InsertJob(smash, cmdString, pID, time(NULL));
+				if(IsBackGround(cmdString)){ 	// Run in bg
+					printf("Run in background\n");
+				}
+				else{	// Run in fg
+					printf("Run in foreground\n");
+					int status;
+					if(-1 == waitpid(pID, &status, WUNTRACED)){
+						perror("waitpid() failed");
+					}
+				}
 				break;
 	}
 }

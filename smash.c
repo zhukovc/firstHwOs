@@ -39,13 +39,13 @@ void InitHistory(Smash *smashPtr){
 
 void InitJobs(Smash *smashPtr){
 	Smash smash = *smashPtr;
-	smash->jobs = (Job*) malloc (sizeof(Job) * NUM_OF_PROCESSES);
+	smash->jobs = (Job*) malloc (sizeof(Job) * MAX_NUM_OF_PROCESSES);
 	if(NULL == smash->jobs){
 		return;
 	}
 
 	int i = 0, j = 0;
-	for(i = 0; i < NUM_OF_PROCESSES; ++i){
+	for(i = 0; i < MAX_NUM_OF_PROCESSES; ++i){
 		smash->jobs[i].jobName = (char*) malloc (sizeof(char) * MAX_LINE_SIZE + 1);
 		if(NULL == smash->jobs[i].jobName){
 			for(j = 0; j < i; ++j){
@@ -74,6 +74,8 @@ Smash InitSmash(Smash *smashPtr){
 	}
 
 	smash->currHistory = 0;
+	smash->numOfJobs = 0;
+	smash->fgIndex = -1;
 	return smash;
 }
 

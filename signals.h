@@ -8,7 +8,7 @@
 #include <string.h>
 #include <signal.h>
 
-
+int sendSignal(int pid, int sigNum);
 
 #endif
 

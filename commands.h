@@ -11,7 +11,7 @@
 
 // Extra history, for the last "history" command
 #define NUM_OF_HISTORIES (50 + 1)
-#define NUM_OF_PROCESSES (100)
+#define MAX_NUM_OF_PROCESSES (100)
 #define MAX_LINE_SIZE 80
 #define MAX_ARG 20
 typedef enum { FALSE , TRUE } bool;
@@ -27,13 +27,14 @@ struct smash_t {
 	char** history;
 	int currHistory;
 	Job* jobs;
-	int currJob;
+	int numOfJobs;
+	int fgIndex;
 };
 typedef struct smash_t *Smash;
 
 int ExeComp(char* lineSize);
 int BgCmd(char* lineSize, void* jobs);
 int ExeCmd(Smash smash, void* jobs, char* lineSize, char* cmdString);
-void ExeExternal(char *args[MAX_ARG], char* cmdString);
+void ExeExternal(Smash smash, char *args[MAX_ARG], char* cmdString);
 #endif
 
